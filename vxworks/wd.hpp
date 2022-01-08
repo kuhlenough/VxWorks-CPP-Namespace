@@ -1,11 +1,7 @@
 /*
- * Copyright (c) 2020 Wind River Systems, Inc.
+ * Copyright (c) 2022 Wind River Systems, Inc.
  *
- * The right to copy, distribute, modify or otherwise make use
- * of this software may be licensed only pursuant to the terms
- * of an applicable Wind River license agreement.
  */
-
 
 #ifndef __INCwdhpp
 #define __INCwdhpp
@@ -33,7 +29,7 @@ namespace vxworks
  library. It is only available in the kernel.
   
  Special care must be taken with the callback() as it executes as pseudo interrupt.  
- it has no context so must not block, call system functions, use RTTI or C++ exceptions.
+ It has no context so must not block, call system functions, use RTTI or C++ exceptions.
 
  The kernel watchdog class should not be confused with the /watchdog I/O device that
  is available with some boards.    
@@ -69,7 +65,7 @@ public:
 	    throw;
 	}
     
-    
+    /*! Delete a watchdog */
     ~wd()
 	{
 	::wdDelete(id);

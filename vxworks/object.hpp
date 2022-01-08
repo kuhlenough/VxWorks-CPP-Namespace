@@ -1,18 +1,9 @@
 /* object.hpp - VxWorks object class */
 
 /*
- * Copyright (c) 2020 Wind River Systems, Inc.
- *
- * The right to copy, distribute, modify or otherwise make use
- * of this software may be licensed only pursuant to the terms
- * of an applicable Wind River license agreement.
+ * Copyright (c) 2022 Wind River Systems, Inc.
  */
 
-/*
-modification history
---------------------
-07oct20,brk  created
-*/
 #ifndef __INCobjecthpp
 #define __INCobjecthpp
 
@@ -91,11 +82,19 @@ public:
 
     /*!
     Return the name of a VxWorks class instance.
-    If the object is not named or an error occurs it returns -1.     
+    If the object is not named  an error is thrown     
     */
-    _Vx_STATUS name(char * nameBuf, size_t bufSize)
+    string name(size_t capacity  ) 
 	{
-	return ::objNameGet(__OBJ(id), nameBuf, bufSize );
+        char * nameBuf = malloc (capacity);
+	string ret;
+	if nameBuf == NULL
+		throw ;
+	if ( ERROR == ::objNameGet(__OBJ(id), nameBuf, capacity ))
+		throw ;
+	ret = nameBuf;
+	free(nameBuf);
+	return ret;
 	}
 #else
 

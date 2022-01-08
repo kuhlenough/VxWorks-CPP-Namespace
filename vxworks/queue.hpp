@@ -1,29 +1,29 @@
 /* queue.hpp - message queue header */
 
 /*
- * Copyright (c) 2020 Wind River Systems, Inc.
- *
- * The right to copy, distribute, modify or otherwise make use
- * of this software may be licensed only pursuant to the terms
- * of an applicable Wind River license agreement.
+ * Copyright (c) 2022 Wind River Systems, Inc.
  */
 
-/*
-modification history
---------------------
-07oct20,brk  created
-*/
 #ifndef __INCqueuehpp
 #define __INCqueuehpp
 
 #include <msgQLib.h>
 #include <msgQEvLib.h>
 #include "object.hpp"
+#include "chrono2tic.hpp"
+#include <cstring>
 
 #ifdef __cplusplus
 
 namespace vxworks 
 {
+//! unlink a named message queue	
+void unlink( string name )
+	{
+	::msgQUnlink( name.c_str().c_str());
+	}
+
+
 // (VxWorks message queue )
 class msgQcommon : public object< MSG_Q_ID >
     {
@@ -35,12 +35,8 @@ public:
 	else
 	    ::msgQDelete(id);
 	}
-    
-    //void unlink()
-	///{
-	//::msgQUnlink(d);
-	//}
-    
+  
+   
     /*! The number of messages currently in the queue.
      */    
     ssize_t numMsgs()
@@ -48,6 +44,9 @@ public:
 	return  ::msgQNumMsgs(id);
 	}
     
+    /*! start the event notification process from the queue
+        for the calling thread 
+    */
     _Vx_STATUS eventStart
         (
         _Vx_event_t events,   /* user-defined events                */
@@ -57,7 +56,10 @@ public:
 	return ::msgQEvStart(id, events, options);
 	}
     
-    _Vx_STATUS eventStop ()
+    /*! stop the event notification process from the queue
+        for the calling thread 
+    */
+   _Vx_STATUS eventStop ()
        {
        return ::msgQEvStop(id);
        }
@@ -88,32 +90,37 @@ This is wrapper to the
 library.  Like the underlying C library a message is an abstract 
 buffer with variable length. If named messages can be passed between contexts
 similar to a POSIX queue. For a class that offers named queue more similar to std::queue
-use vxworks:queue.       
+use vxworks::queue.       
 
 */
 class msgQ: public msgQcommon
     {
+private:
+     const int default_mode = OM_DESTROY_ON_LAST_CALL | OM_CREATE ; 	    
+     const int default_options = MSG_Q_FIFO ; 	    
 public:
-    msgQ(const char * name, size_t maxMsgs, 
+    //! Create a VxWorks named message queue specifying all parameters 
+    msgQ( const string name, size_t maxMsgs, 
 			     size_t maxMsgLength, int options, int mode,
 			     void * context)
 	{
 	named = true;
-	id = ::msgQOpen( name, maxMsgs, maxMsgLength,  options, mode, context);
+	id = ::msgQOpen( name.c_str(), maxMsgs, maxMsgLength,  options, mode, context);
 	if (id == MSG_Q_ID_NULL)
 	    throw;
 	}
 
-    msgQ(const char * name, size_t maxMsgs, 
-			     size_t maxMsgLength, int options, int mode)
+    //! Create a VxWorks named message queue 
+    msgQ( const string name, size_t maxMsgs, 
+			     size_t maxMsgLength)
 	{
 	named = true;
-	id = ::msgQOpen( name, maxMsgs, maxMsgLength,  options, mode, NULL);
+	id = ::msgQOpen(  name.c_str(), maxMsgs, maxMsgLength,  default_options, default_mode, NULL);
 	if (id == MSG_Q_ID_NULL)
 		    throw;
 	}
 
-    // unnamed queue
+    //! Create an unnamed queue
     msgQ(size_t maxMsgs, 
 	     size_t maxMsgLength, int options)
 	{
@@ -122,55 +129,71 @@ public:
 		    throw;
 	}
 
-    // open an existing queue
-    msgQ(const char * name)
+    //! open an existing named queue, created in another context 
+    msgQ(const char& name)
 	{
 	named = true;
-	id = ::msgQOpen( name, 0, 0, 0, 0, NULL);
+	id = ::msgQOpen( &name, 0, 0, 0, 0, NULL);
 	if (id == MSG_Q_ID_NULL)
 	    throw;
 	}
 
+    //! put a message on the front of the queue, pending for a timeout and specifying a message priority 
     _Vx_STATUS send 
     	(
-	 char *    buffer,         /* message to send */
+	 char &    buffer,         /* message to send */
 	 size_t    nBytes,         /* length of message */
 	 _Vx_ticks_t timeout,      /* ticks to wait */
 	 int       priority        /* MSG_PRI_NORMAL or MSG_PRI_URGENT */
     	)
 	{
-	return ::msgQSend(id, buffer, nBytes, timeout, priority);
+	return ::msgQSend(id, &buffer, nBytes, timeout, priority);
 	}
 
-    _Vx_STATUS send 
+    //! put a message on the front of the queue, pend if the queue is full
+    inline _Vx_STATUS send 
     	(
-	 char *    buffer,         /* message to send */
+	 char&     buffer,         /* message to send */
 	 size_t    nBytes         /* length of message */
     	)
 	{
-	return ::msgQSend(id, buffer, nBytes, WAIT_FOREVER, MSG_PRI_NORMAL);
+	return ::msgQSend(id, &buffer, nBytes, WAIT_FOREVER, MSG_PRI_NORMAL);
 	}
     
-    ssize_t recieve(char *      buffer,       /* buffer to receive message */
+    //! remove a message from the end of the queue, wait timeout tics for a message if queue is empty
+    inline ssize_t recieve(char &buffer,       /* buffer to receive message */
 		    size_t      maxNBytes,    /* length of buffer */
 		    _Vx_ticks_t timeout       /* ticks to wait */
 		    )
 	{
-	 return ::msgQReceive( id, buffer, maxNBytes, timeout);
+	 return ::msgQReceive( id, &buffer, maxNBytes, timeout);
 	}
-    
-    ssize_t recieve(char *      buffer,       /* buffer to receive message */
+ 
+    //! remove a message from the end of the queue, wait a std:duration for a message if queue is empty
+    template<class Rep, class Period>
+    inline ssize_t recieve(
+		    char &      buffer,       /* buffer to receive message */
+		    size_t      maxNBytes,    /* length of buffer */
+		    const duration<Rep, Period>& relTime   )
+	{
+	 return ::msgQReceive( id, &buffer, maxNBytes, chrono2tic(relTime));
+	}
+
+ 
+    //! remove a message from the end of the queue, pend indefinitely till a message is available
+    inline ssize_t recieve(char &      buffer,       /* buffer to receive message */
 		    size_t      maxNBytes    /* length of buffer */
 		    )
 	{
-	 return ::msgQReceive( id, buffer, maxNBytes, WAIT_FOREVER);
+	 return ::msgQReceive( id, &buffer, maxNBytes, WAIT_FOREVER);
 	}
     
-    ssize_t poll(char *      buffer,       /* buffer to receive message */
-		    size_t      maxNBytes    /* length of buffer */
-		    )
+    //! remove a message from the end of the queue, return error immediately if no message is available
+    inline ssize_t poll(char &      buffer,       /* buffer to receive message */
+		 size_t      maxNBytes    /* length of buffer */
+		 )
 	{
-	 return ::msgQReceive( id, buffer, maxNBytes, NO_WAIT);
+	 return ::msgQReceive( id, &buffer, maxNBytes, NO_WAIT);
 	}
     }; // msgQ 
 
@@ -189,53 +212,54 @@ template <typename M> class queue : public msgQcommon
     {
 private:
     const size_t sizeM = sizeof(M);
+    const int default_mode = OM_DESTROY_ON_LAST_CALL | OM_CREATE ; 	    
+    const int default_options = MSG_Q_FIFO ; 	    
+
 public:    
     
     /*! Instantiate a named queue with an optional *context* token.   
     */
-    queue(const char * name, size_t maxMsgs, 
+    queue(const string name, size_t maxMsgs, 
     			     int options, int mode,
     			     void * context)
     	{
 	named = true;
-    	id = ::msgQOpen( name, maxMsgs, sizeM,  options, mode, context);
+    	id = ::msgQOpen( name.c_str(), maxMsgs, sizeM,  options, mode, context);
     	if (id == MSG_Q_ID_NULL)
     	    throw;
     	}
 
     /*! Instantiate a named queue that holds up to *maxMsgs* in FIFO order.   
     */
-    queue(const char * name, size_t maxMsgs, 
-			      int options, int mode)
+    queue(const string name, size_t maxMsgs )
 	{
 	named = true;
-	id = ::msgQOpen( name, maxMsgs, sizeM,  options, mode, NULL);
+	id = ::msgQOpen( name.c_str(), maxMsgs, sizeM,  default_options, default_mode, NULL);
 	if (id == MSG_Q_ID_NULL)
 		    throw;
 	}
 
     /*! Instantiate a unnamed queue that holds up to *maxMsgs* in FIFO order.   
     */
-    queue(size_t maxMsgs, 
-	      int options)
+    queue(size_t maxMsgs )
 	{
-	id = ::msgQCreate (maxMsgs, sizeM, options);
+	id = ::msgQCreate (maxMsgs, sizeM, default_options);
 	if (id == MSG_Q_ID_NULL)
 		    throw;
 	}
 
      /*! Open an existing named queue from a second context
          */
-    queue(const char * name)
+    queue(const string name)
 	{
 	named = true;
-	id = ::msgQOpen( name, 0, 0, 0, 0, NULL);
+	id = ::msgQOpen( name.c_str(), 0, 0, 0, 0, NULL);
 	if (id == MSG_Q_ID_NULL)
 	    throw;
 	}
     
-    
-    _Vx_STATUS send 
+    //! put a message of type M at the front of the queue, pending if the queue is full for *timeout* tics 
+    inline _Vx_STATUS send 
     	(
 	M& message,
 	 _Vx_ticks_t timeout,      /* ticks to wait */
@@ -244,16 +268,25 @@ public:
 	{
 	return ::msgQSend(id, reinterpret_cast<char *>(&message), sizeM, timeout, priority);
 	}
+	
+    //! put a message of type M at the front of the queue, pending if the queue is full for std::duration
+     template<class Rep, class Period>
+     inline _Vx_STATUS send( M& message, const duration<Rep, Period>& relTime) 
+	{
+	return ::msgQSend(id, reinterpret_cast<char *>(&message), sizeM, chrono2tic(relTime), MSG_PRI_NORMAL);
+	}
 
-    STATUS send 
+    //! put a message of type M at the front of the queue, pending indefinitely if the queue is full 
+    inline STATUS send 
     	(
 	M& message
-	     )
+	)
 	{
 	return ::msgQSend(id, reinterpret_cast<char *>(&message), sizeM, WAIT_FOREVER, MSG_PRI_NORMAL);
 	}
     
-    void push( 
+    //! put a message of type M at the front of the queue, pending indefinitely if the queue is full
+    inline void push( 
 	     const M& message 
 	     )
 	{
@@ -261,7 +294,8 @@ public:
 	    throw;
 	}
     
-    ssize_t recieve(
+    //! remove a message from the end of the queue, wait timeout tics for a message if queue is empty
+    inline ssize_t recieve(
 		    M& message,    /* pointer to message */
 		    _Vx_ticks_t timeout       /* ticks to wait */
 		    )
@@ -269,26 +303,39 @@ public:
 	 return ::msgQReceive( id, reinterpret_cast<char *>(&message), sizeM, timeout);
 	}
     
-    ssize_t recieve(
+    //! remove a message from the end of the queue, wait a std:duration for a message if queue is empty
+    template<class Rep, class Period>
+    inline ssize_t recieve(
+		    M& message,    /* pointer to message */
+		    const duration<Rep, Period>& relTime     		    )
+	{
+	 return ::msgQReceive( id, reinterpret_cast<char *>(&message), sizeM, chrono2tic(relTime));
+	}
+
+   //! remove a message from the end of the queue, pend indefinitely till a message is available
+   inline ssize_t recieve(
 		    M& message
 		    )
 	{
 	 return ::msgQReceive( id, reinterpret_cast<char *>(&message), sizeM, WAIT_FOREVER);
 	}
 
-    ssize_t poll(
+    //! remove a message from the end of the queue, return error immediately if no message is available
+   inline ssize_t poll(
 		M& message 
 		)
 	{
 	 return ::msgQReceive( id, reinterpret_cast<char *>(&message), sizeM, NO_WAIT);
 	}
 
+    //! operator to send a message 
     void operator<< ( M& message)
  	{
 	if (OK != ::msgQSend(id, reinterpret_cast<char *>(&message), sizeM, WAIT_FOREVER, MSG_PRI_NORMAL))
 	    throw;
 	}
 	 
+    //! operator to receive a message 
     void operator>> (  M& message)
  	{
 	if (OK != ::msgQReceive( id, reinterpret_cast<char *>(&message), sizeM, WAIT_FOREVER) )

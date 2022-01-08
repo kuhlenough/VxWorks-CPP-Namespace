@@ -1,18 +1,9 @@
 /*! VxWorks event class */
 
 /*
- * Copyright (c) 2020 Wind River Systems, Inc.
- *
- * The right to copy, distribute, modify or otherwise make use
- * of this software may be licensed only pursuant to the terms
- * of an applicable Wind River license agreement.
+ * Copyright (c) 2022 Wind River Systems, Inc.
  */
 
-/*
-modification history
---------------------
-07oct20,brk  created
-*/
 #ifndef __INCeventhpp
 #define __INCeventhpp
 
@@ -124,7 +115,7 @@ public:
        if this option is selected. Wanted events are always cleared hence
        this option has not effect on them.
 
-     . 
+     .
      Lastly, it is possible to retrieve events that have already been
      received without affecting the events register by selecting the
      following option:
@@ -176,9 +167,9 @@ public:
 			_Vx_event_t events,
 			_Vx_UINT32 options,
 			_Vx_ticks_t timeout,
-			_Vx_event_t *eventsReceived)
+			_Vx_event_t& eventsReceived)
 	    {
-	    return ::eventReceiveEx(events, options, timeout, eventsReceived);
+	    return ::eventReceiveEx(events, options, timeout, &eventsReceived);
 	    }
 
     /*! Pend and  wait to receive any events sent to the current task for a period of time.
@@ -188,9 +179,9 @@ public:
 			_Vx_event_t events,
 			_Vx_UINT32 options,
 			const duration<Rep, Period>& relTime,
-			_Vx_event_t *eventsReceived)
+			_Vx_event_t& eventsReceived)
 	    {
-	    return ::eventReceiveEx(events, options, chrono2tic(relTime), eventsReceived);
+	    return ::eventReceiveEx(events, options, chrono2tic(relTime), &eventsReceived);
 	    }    
 
     /*! Pend and  wait to receive any events sent to the current task until a specific
@@ -201,9 +192,9 @@ public:
 			_Vx_event_t events,
 			_Vx_UINT32 options,
 			const time_point<Clock,Duration>& absTime,
-			_Vx_event_t *eventsReceived)
+			_Vx_event_t& eventsReceived)
 	    {
-	    return ::eventReceiveEx(events, options, time_point2tic(absTime), eventsReceived);
+	    return ::eventReceiveEx(events, options, time_point2tic(absTime), &eventsReceived);
 	    }    
     
     
@@ -230,16 +221,16 @@ public:
     inline _Vx_STATUS poll(
 		    _Vx_event_t events,
 		    _Vx_UINT32 options,
-		    _Vx_event_t *eventsReceived)
+		    _Vx_event_t& eventsReceived)
 	    {
-	    return ::eventReceiveEx(events, options, NO_WAIT, eventsReceived);
+	    return ::eventReceiveEx(events, options, NO_WAIT, &eventsReceived);
 	    }
     
     /*!  check for any event sent the current task without pending  */
     inline _Vx_STATUS fetch( 
-		     _Vx_event_t *eventsReceived)
+		     _Vx_event_t& eventsReceived)
 	    {
-	    return ::eventReceiveEx(0, EVENTS_FETCH, NO_WAIT, eventsReceived);
+	    return ::eventReceiveEx(0, EVENTS_FETCH, NO_WAIT, &eventsReceived);
 	    }
 	
     /*!  clear any events for the current task. Since events can be received at

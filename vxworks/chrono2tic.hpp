@@ -1,18 +1,9 @@
 /* chrono2tic.hpp - C++ mutex class header */
 
 /*
- * Copyright (c) 2020 Wind River Systems, Inc.
- *
- * The right to copy, distribute, modify or otherwise make use
- * of this software may be licensed only pursuant to the terms
- * of an applicable Wind River license agreement.
+ * Copyright (c) 2022 Wind River Systems, Inc.
  */
 
-/*
-modification history
---------------------
-25oct20,brk  created
-*/
 #include <private/clockLibP.h>
 #include <chrono>
 
@@ -48,7 +39,7 @@ static inline _Vx_ticks_t time_point2tic( const time_point<clock,duration> tp)
 	ts.tv_sec = secs.time_since_epoch().count();
 	ts.tv_nsec = ns.count();
 
-	clock_absTimeoutCalc (CLOCK_REALTIME, &ts, &sysTicks );
+	::clock_absTimeoutCalc (CLOCK_REALTIME, &ts, &sysTicks );
 	return sysTicks ;
 	}
 
