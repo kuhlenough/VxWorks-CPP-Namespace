@@ -13,5 +13,5 @@ The classes follow the naming style of the STL, preferring lower case method nam
 
 For more detail see the  [Doxygen Reference](../) 
 
-
+TODO:  needs some test code, figure out move/copy constructible support
 
