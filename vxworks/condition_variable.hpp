@@ -140,7 +140,7 @@ public:
 	 )
 	{
 	named=true;
-	id = ::condVarOpen(name.c_str().c_str(), 0,  0, NULL);
+	id = ::condVarOpen(name.c_str(), 0,  0, NULL);
 	if (id == CONDVAR_ID_NULL)
 		    throw;
 	}
